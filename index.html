@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhysioVoice – AI Voice for Medical Clinics</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ffffff;
+    --off: #f7faff;
+    --blue: #1d4ed8;
+    --blue-light: #eff4ff;
+    --blue-mid: #3b6ef5;
+    --black: #111111;
+    --mid: #444444;
+    --soft: #888888;
+    --border: #e4eaf5;
+    --pill: #f0f4ff;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--black);
+    font-family: 'Inter', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .deck { width: 100%; height: 100vh; position: relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 68px 80px 60px;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.4s cubic-bezier(.4,0,.2,1), transform 0.4s cubic-bezier(.4,0,.2,1);
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .slide.active { opacity: 1; transform: translateY(0); pointer-events: all; }
+  .slide.exit { opacity: 0; transform: translateY(-24px); }
+
+  .topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(8px);
+    z-index: 50;
+    justify-content: space-between;
+  }
+
+  .topbar-logo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .topbar-logo .physio { color: var(--blue); }
+
+  .topbar-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--blue);
+    background: var(--blue-light);
+    border: 1px solid rgba(29,78,216,0.18);
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .topbar-right {
+    font-size: 12px;
+    color: var(--soft);
+    font-weight: 500;
+  }
+
+  .nav-dots {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 50;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: all 0.25s;
+    border: 1px solid #d0d9ef;
+  }
+
+  .dot.active { background: var(--blue); border-color: var(--blue); width: 20px; border-radius: 3px; }
+
+  .nav-arrow {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    background: white;
+    border: 1px solid var(--border);
+    color: var(--soft);
+    font-size: 16px;
+    width: 38px; height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 50;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  .nav-arrow:hover { border-color: var(--blue); color: var(--blue); box-shadow: 0 4px 16px rgba(29,78,216,0.15); }
+  .nav-arrow.prev { left: 18px; }
+  .nav-arrow.next { right: 18px; }
+
+  /* Typography */
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .eyebrow::before {
+    content: '';
+    width: 24px; height: 2px;
+    background: var(--blue);
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  h1.hero {
+    font-size: clamp(64px, 9vw, 120px);
+    font-weight: 900;
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    color: var(--black);
+  }
+
+  h1.hero em {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--blue);
+  }
+
+  h2.slide-title {
+    font-size: clamp(40px, 5.5vw, 74px);
+    font-weight: 900;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    color: var(--black);
+    margin-bottom: 26px;
+  }
+
+  h2.slide-title em {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--blue);
+  }
+
+  .body-text {
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--mid);
+    line-height: 1.7;
+    max-width: 520px;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--pill);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mid);
+    margin-top: 10px;
+  }
+
+  .pill.blue {
+    background: var(--blue-light);
+    border-color: rgba(29,78,216,0.2);
+    color: var(--blue);
+  }
+
+  /* Layout */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 24px;
+  }
+
+  .card {
+    background: var(--off);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 18px;
+  }
+
+  .card-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--soft);
+    margin-bottom: 8px;
+  }
+
+  .card-num {
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    color: var(--black);
+    line-height: 1;
+  }
+
+  .card-num span { color: var(--blue); }
+
+  .card-sub {
+    font-size: 11.5px;
+    color: var(--soft);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  .check-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .check-list li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 14px;
+    color: var(--mid);
+    line-height: 1.5;
+  }
+
+  .icon {
+    width: 22px; height: 22px;
+    background: var(--blue-light);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    font-size: 10px;
+    color: var(--blue);
+    font-weight: 800;
+  }
+
+  .terminal {
+    background: #f4f7ff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    font-size: 12.5px;
+    line-height: 1.85;
+    color: var(--black);
+  }
+
+  .terminal .t-dim { color: var(--soft); }
+  .terminal .t-blue { color: var(--blue); font-weight: 600; }
+  .terminal .t-label { font-size: 11px; font-weight: 700; color: var(--mid); margin-bottom: 10px; display: block; }
+  .terminal .t-dot { width: 8px; height: 8px; background: var(--blue); border-radius: 50%; display: inline-block; animation: blink 1.2s ease-in-out infinite; margin-right: 6px; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .stat-row {
+    display: flex;
+    gap: 36px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+
+  .stat-item { display: flex; flex-direction: column; gap: 4px; }
+
+  .stat-num {
+    font-size: 48px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    color: var(--blue);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--soft);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* ROI cards */
+  .roi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  .roi-card {
+    background: var(--off);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 14px;
+    text-align: center;
+  }
+
+  .roi-card.highlight {
+    background: var(--blue-light);
+    border-color: rgba(29,78,216,0.2);
+  }
+
+  .roi-amt {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: var(--blue);
+    line-height: 1;
+  }
+
+  .roi-label {
+    font-size: 10.5px;
+    color: var(--soft);
+    margin-top: 5px;
+    line-height: 1.4;
+  }
+
+  /* Tier */
+  .tier-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 24px;
+  }
+
+  .tier {
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 18px;
+    background: white;
+  }
+
+  .tier.featured { border-color: var(--blue); background: var(--blue-light); }
+
+  .tier-tag {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--soft); margin-bottom: 10px;
+  }
+
+  .tier.featured .tier-tag { color: var(--blue); }
+
+  .tier-price {
+    font-size: 34px; font-weight: 900;
+    letter-spacing: -0.04em; color: var(--black);
+    line-height: 1; margin-bottom: 14px;
+  }
+
+  .tier-price sub { font-size: 13px; font-weight: 500; color: var(--soft); letter-spacing: 0; }
+
+  .tier-features { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+
+  .tier-features li {
+    font-size: 12px; color: var(--mid);
+    display: flex; gap: 8px; align-items: center;
+  }
+
+  .tier-features li::before { content: '✓'; font-size: 10px; color: var(--blue); font-weight: 800; flex-shrink: 0; }
+
+  /* Comp */
+  .comp-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    background: var(--off);
+  }
+
+  .comp-card.us { background: var(--blue-light); border-color: rgba(29,78,216,0.22); }
+
+  .comp-name {
+    font-size: 12px; font-weight: 700; color: var(--black);
+    margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+  }
+
+  .badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 7px; border-radius: 4px; }
+  .us-badge { background: var(--blue); color: white; }
+  .them { background: #eee; color: var(--soft); }
+
+  .comp-feat { display: flex; flex-direction: column; gap: 5px; }
+  .comp-feat span { font-size: 12px; color: var(--mid); display: flex; gap: 8px; }
+  .comp-feat span.yes::before { content: '✓'; color: var(--blue); font-weight: 800; }
+  .comp-feat span.no::before { content: '✗'; color: #ccc; font-weight: 600; }
+
+  /* Live badge */
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--blue); color: white;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 8px 16px; border-radius: 100px; margin-bottom: 22px;
+  }
+
+  .live-dot { width: 7px; height: 7px; background: white; border-radius: 50%; animation: blink 1.2s ease-in-out infinite; }
+
+  /* Demo */
+  .demo-box {
+    background: var(--off);
+    border: 1.5px dashed var(--border);
+    border-radius: 12px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; padding: 36px 24px; text-align: center;
+    min-height: 190px;
+  }
+
+  /* Ask */
+  .ask-amount {
+    font-size: clamp(60px, 8vw, 100px);
+    font-weight: 900; letter-spacing: -0.05em;
+    line-height: 0.9; color: var(--black);
+  }
+
+  .ask-amount span { color: var(--blue); }
+
+  .contact-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--pill); border: 1px solid var(--border);
+    border-radius: 100px; padding: 8px 16px;
+    font-size: 13px; font-weight: 600; color: var(--mid);
+  }
+
+  /* BG deco */
+  .deco-circle {
+    position: absolute; border-radius: 50%;
+    background: var(--blue-light);
+    pointer-events: none; z-index: 0;
+  }
+
+  .slide-content { position: relative; z-index: 1; }
+
+  @media (max-width: 768px) {
+    .slide { padding: 70px 24px 60px; }
+    .grid-2 { grid-template-columns: 1fr; gap: 24px; }
+    .card-grid, .tier-row, .roi-grid { grid-template-columns: 1fr; }
+    h1.hero { font-size: 56px; }
+    h2.slide-title { font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">
+    <span class="physio">Physio</span><span>Voice</span>
+    <div class="topbar-badge">Seed</div>
+  </div>
+  <div class="topbar-right" id="slideNum">1 of 8</div>
+</div>
+
+<div class="deck">
+
+  <!-- S1: Title -->
+  <div class="slide active" id="s1">
+    <div class="deco-circle" style="width:480px;height:480px;right:-130px;top:-150px;opacity:0.45;"></div>
+    <div class="deco-circle" style="width:160px;height:160px;left:55%;bottom:70px;opacity:0.3;"></div>
+    <div class="slide-content">
+      <div class="eyebrow">March 2026 · Waterloo, ON</div>
+      <h1 class="hero">Physio<br><em>Voice.</em></h1>
+      <p class="body-text" style="margin-top:20px;font-size:16px;">AI-powered voice automation for medical clinics.<br>Starting with physio — expanding to all of medicine.</p>
+      <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;">
+        <div class="pill">🏥 Cal.com + Twilio + AI voice</div>
+        <div class="pill">📊 Full observability &amp; traceability</div>
+        <div class="pill blue">🇨🇦 Canada launch → 🇺🇸 US scale</div>
+      </div>
+      <div style="margin-top:40px;font-size:14px;font-weight:700;color:var(--black);">
+        Seeking <span style="color:var(--blue);">$1.5M seed</span> · $6M pre-money
+      </div>
+    </div>
+  </div>
+
+  <!-- S2: Problem -->
+  <div class="slide" id="s2">
+    <div class="deco-circle" style="width:320px;height:320px;right:-90px;bottom:-90px;opacity:0.4;"></div>
+    <div class="slide-content">
+      <div class="eyebrow">01 · Problem</div>
+      <h2 class="slide-title">Clinics are<br><em>bleeding</em> revenue.</h2>
+      <div class="grid-2">
+        <ul class="check-list">
+          <li><div class="icon">✗</div> Manual phone scheduling eats 30–40% of front-desk time</li>
+          <li><div class="icon">✗</div> After-hours calls = missed bookings, lost revenue</li>
+          <li><div class="icon">✗</div> No-show rates of 15–31% in physio alone</li>
+          <li><div class="icon">✗</div> Staff burnout from repetitive, low-value tasks</li>
+          <li><div class="icon">✗</div> $20K–$50K+/year lost per clinic from missed appointments</li>
+        </ul>
+        <div>
+          <div class="terminal">
+            <span class="t-label"><span class="t-dot"></span>AI admin tools exist but...</span>
+            <div class="t-blue">→ Not specialized for physio/medical</div>
+            <div class="t-blue">→ No traceability for compliance/audits</div>
+            <div class="t-blue">→ No natural voice for patient trust</div>
+            <div class="t-blue">→ No 24/7 intelligent voice handling</div>
+            <br>
+            <div class="t-dim">Result: lost revenue, inefficient ops,<br>staff burnout. Problem unsolved.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S3: Solution -->
+  <div class="slide" id="s3">
+    <div class="deco-circle" style="width:260px;height:260px;right:60px;top:-70px;opacity:0.45;"></div>
+    <div class="slide-content">
+      <div class="eyebrow">02 · Solution</div>
+      <h2 class="slide-title">Call. Book.<br><em>Show up.</em></h2>
+      <div class="grid-2">
+        <ul class="check-list">
+          <li><div class="icon">✓</div> 24/7 voice scheduling &amp; after-hours call capture</li>
+          <li><div class="icon">✓</div> Smart voice/SMS reminders to recover missed appointments</li>
+          <li><div class="icon">✓</div> Seamless live handoff to staff when needed</li>
+          <li><div class="icon">✓</div> Cal.com calendar integration · Twilio telephony</li>
+          <li><div class="icon">✓</div> Real-time dashboards, call logs &amp; analytics</li>
+          <li><div class="icon">✓</div> Audit-ready transcripts · HIPAA/PIPEDA aligned</li>
+        </ul>
+        <div>
+          <div class="terminal">
+            <span class="t-label"><span class="t-dot"></span>Live call · 11:47pm</span>
+            <div class="t-dim">PATIENT: "Hi, I need to book a physio<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;session for my shoulder..."</div>
+            <br>
+            <div>PHYSIOVOICE: I can help! I have</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;Thursday 9am or Friday 2pm...</div>
+            <br>
+            <div class="t-blue">✓ Booking confirmed · Cal.com synced</div>
+            <div class="t-blue">✓ Reminder scheduled · logged &amp; traced</div>
+          </div>
+          <div class="pill blue" style="margin-top:14px;">Phase 1: scheduling → intake → billing</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S4: Demo / ROI -->
+  <div class="slide" id="s4">
+    <div class="deco-circle" style="width:300px;height:300px;left:-80px;bottom:-80px;opacity:0.35;"></div>
+    <div class="slide-content">
+      <div class="live-badge"><div class="live-dot"></div> Live Demo · Real ROI per Clinic</div>
+      <h2 class="slide-title">$89K+ net<br><em>value/year.</em></h2>
+      <div class="grid-2" style="margin-top:8px;">
+        <div class="roi-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="roi-card">
+            <div class="roi-amt">$11K+</div>
+            <div class="roi-label">Labor saved<br>per year</div>
+          </div>
+          <div class="roi-card">
+            <div class="roi-amt">$28K+</div>
+            <div class="roi-label">After-hours sessions<br>captured/year</div>
+          </div>
+          <div class="roi-card">
+            <div class="roi-amt">$14K+</div>
+            <div class="roi-label">No-shows<br>recovered/year</div>
+          </div>
+          <div class="roi-card highlight">
+            <div class="roi-amt">$34K+</div>
+            <div class="roi-label">New patient LTV<br>added/year</div>
+          </div>
+        </div>
+        <div>
+          <div style="background:var(--blue-light);border:1px solid rgba(29,78,216,0.2);border-radius:12px;padding:20px 18px;margin-bottom:14px;">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);margin-bottom:6px;">Total net value after fees</div>
+            <div style="font-size:40px;font-weight:900;letter-spacing:-0.04em;color:var(--black);">$89<span style="color:var(--blue);">K+</span></div>
+            <div style="font-size:12px;color:var(--soft);margin-top:4px;">8-month payback · per physio clinic</div>
+          </div>
+          <a href="https://ianpilon.github.io/Physio-Voice-by-Ian-Pilon/" target="_blank" rel="noopener" style="text-decoration:none;display:block;">
+            <div style="border:1.5px dashed var(--border);border-radius:10px;padding:14px 16px;text-align:center;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor=''">
+              <div style="font-size:18px;margin-bottom:6px;">🔗</div>
+              <div style="font-size:12px;font-weight:700;color:var(--mid);">View Live Demo</div>
+              <div style="font-size:11px;color:var(--blue);margin-top:3px;">ianpilon.github.io/Physio-Voice-by-Ian-Pilon</div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S5: Market -->
+  <div class="slide" id="s5">
+    <div class="deco-circle" style="width:240px;height:240px;right:40px;top:70px;opacity:0.4;"></div>
+    <div class="slide-content">
+      <div class="eyebrow">04 · Market</div>
+      <h2 class="slide-title">Healthcare admin<br><em>is exploding.</em></h2>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-label">Canada Physio</div>
+          <div class="card-num">$4.4<span>B</span></div>
+          <div class="card-sub">2026 · Ontario-first entry<br>Broader outpatient much larger</div>
+        </div>
+        <div class="card">
+          <div class="card-label">US Physical Therapy</div>
+          <div class="card-num">$65<span>B</span></div>
+          <div class="card-sub">2025–26 · 38,000–40,000+ PT clinics<br>Growing to $100B+ by 2030s</div>
+        </div>
+        <div class="card">
+          <div class="card-label">AI in Healthcare</div>
+          <div class="card-num">$500<span>B+</span></div>
+          <div class="card-sub">by 2030s · 30–39% CAGR<br>from $50B+ in 2026</div>
+        </div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-item"><div class="stat-num">31%</div><div class="stat-label">physio no-show rate</div></div>
+        <div class="stat-item"><div class="stat-num">$1B+</div><div class="stat-label">TAM Canada + US combined</div></div>
+        <div class="stat-item"><div class="stat-num">40K+</div><div class="stat-label">PT clinics in the US alone</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S6: Edge -->
+  <div class="slide" id="s6">
+    <div class="deco-circle" style="width:300px;height:300px;right:-70px;top:-70px;opacity:0.4;"></div>
+    <div class="slide-content">
+      <div class="eyebrow">05 · Competitive Edge</div>
+      <h2 class="slide-title">Clinic-focused.<br><em>Fully traceable.</em></h2>
+      <div class="grid-2">
+        <ul class="check-list">
+          <li><div class="icon">✓</div> Phased rollout — low-risk scheduling first, then full ops</li>
+          <li><div class="icon">✓</div> Natural voice AI built for patient trust, not just chat</li>
+          <li><div class="icon">✓</div> Full traceability: compliance, audit trails, HIPAA/PIPEDA</li>
+          <li><div class="icon">✓</div> Proven ROI: 8-month payback, $89K+ net/year per clinic</li>
+          <li><div class="icon">✓</div> Canada-first (easy Ontario entry) → US expansion 10x density</li>
+        </ul>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="comp-card">
+            <div class="comp-name">WELLSTAR / Oracle Health <span class="badge them">General</span></div>
+            <div class="comp-feat">
+              <span class="no">Not specialized for physio/medical voice</span>
+              <span class="no">No natural voice for patient interaction</span>
+              <span class="no">Enterprise complexity, not clinic-ready</span>
+            </div>
+          </div>
+          <div class="comp-card">
+            <div class="comp-name">Chatbots / Manual <span class="badge them">Legacy</span></div>
+            <div class="comp-feat">
+              <span class="no">No voice — patients prefer calling</span>
+              <span class="no">No traceability for accountability</span>
+              <span class="no">No after-hours capture</span>
+            </div>
+          </div>
+          <div class="comp-card us">
+            <div class="comp-name">PhysioVoice <span class="badge us-badge">Us</span></div>
+            <div class="comp-feat">
+              <span class="yes">Clinic-specific, voice-native, fully traceable</span>
+              <span class="yes">$89K+ ROI · 8-month payback · proven</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S7: Biz Model -->
+  <div class="slide" id="s7">
+    <div class="deco-circle" style="width:200px;height:200px;left:56%;bottom:-50px;opacity:0.4;"></div>
+    <div class="slide-content">
+      <div class="eyebrow">06 · Business Model</div>
+      <h2 class="slide-title">Subscription<br><em>+ add-ons.</em></h2>
+      <div class="tier-row">
+        <div class="tier">
+          <div class="tier-tag">Setup</div>
+          <div class="tier-price">$X<sub> one-time</sub></div>
+          <ul class="tier-features">
+            <li>Onboarding &amp; configuration</li>
+            <li>Cal.com + Twilio integration</li>
+            <li>Multi-location discounts</li>
+            <li>Training &amp; go-live support</li>
+          </ul>
+        </div>
+        <div class="tier featured">
+          <div class="tier-tag">Core Platform</div>
+          <div class="tier-price">$2,290<sub>/mo</sub></div>
+          <ul class="tier-features">
+            <li>24/7 voice scheduling</li>
+            <li>Smart reminders (voice/SMS)</li>
+            <li>Live dashboards &amp; call logs</li>
+            <li>Audit-ready transcripts</li>
+          </ul>
+        </div>
+        <div class="tier">
+          <div class="tier-tag">Add-Ons</div>
+          <div class="tier-price" style="font-size:26px;">Upsell</div>
+          <ul class="tier-features">
+            <li>Premium support &amp; SLA</li>
+            <li>Advanced analytics reports</li>
+            <li>Intake &amp; billing automation</li>
+            <li>US EHR integrations</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top:16px;font-size:13px;color:var(--soft);font-weight:500;">
+        Telephony billed at cost (~$40–60/mo) · Future phases: intake, billing, general medical
+      </div>
+    </div>
+  </div>
+
+  <!-- S8: Ask -->
+  <div class="slide" id="s8">
+    <div class="deco-circle" style="width:400px;height:400px;right:-90px;bottom:-110px;opacity:0.45;"></div>
+    <div class="slide-content">
+      <div class="eyebrow">07 · Traction &amp; Ask</div>
+      <div class="grid-2" style="gap:60px;">
+        <div>
+          <ul class="check-list" style="margin-bottom:22px;">
+            <li><div class="icon">✓</div> MVP built &amp; live — proposals with ROI calculators out</li>
+            <li><div class="icon">✓</div> Early Ontario physio clinic momentum</li>
+            <li><div class="icon">✓</div> Solo-built — ready to scale with full observability</li>
+          </ul>
+          <div style="background:var(--off);border:1px solid var(--border);border-radius:10px;padding:16px 18px;">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--soft);margin-bottom:10px;">Use of Funds</div>
+            <ul class="check-list">
+              <li><div class="icon" style="font-size:9px;">→</div> R&amp;D: voice quality, traceability, integrations</li>
+              <li><div class="icon" style="font-size:9px;">→</div> Sales &amp; marketing: Canada launch + US prep</li>
+              <li><div class="icon" style="font-size:9px;">→</div> Ops/scaling: multi-clinic, compliance, infra</li>
+            </ul>
+          </div>
+          <div style="margin-top:14px;font-size:12px;color:var(--soft);">Goal: 50 clinics (Canada) · US pilots · health tech acquisition</div>
+        </div>
+        <div>
+          <div class="ask-amount">$1.5<span>M</span><br>seed.</div>
+          <div style="margin-top:12px;font-size:14px;color:var(--mid);font-weight:500;">$6M pre-money · open to discuss</div>
+          <div style="margin-top:28px;font-size:19px;font-weight:900;letter-spacing:-0.03em;line-height:1.3;">
+            The future of clinic ops is<br>voice-automated &amp; <span style="color:var(--blue);">fully traceable.</span>
+          </div>
+          <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap;">
+            <a href="https://cultivating-clarity.replit.app/" target="_blank" rel="noopener" style="text-decoration:none;">
+              <div class="contact-chip" style="cursor:pointer;">👤 Ian Pilon</div>
+            </a>
+            <div class="contact-chip">📍 Waterloo, ON</div>
+            <div class="contact-chip" style="color:var(--blue);border-color:rgba(29,78,216,0.22);background:var(--blue-light);">ianpilon@gmail.com</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Nav -->
+<div class="nav-dots" id="navDots"></div>
+<button class="nav-arrow prev" id="prevBtn">‹</button>
+<button class="nav-arrow next" id="nextBtn">›</button>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const dotsEl = document.getElementById('navDots');
+  const slideNum = document.getElementById('slideNum');
+  let cur = 0;
+
+  slides.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.addEventListener('click', () => go(i));
+    dotsEl.appendChild(d);
+  });
+
+  function go(n) {
+    slides[cur].classList.remove('active');
+    slides[cur].classList.add('exit');
+    const old = cur;
+    setTimeout(() => slides[old].classList.remove('exit'), 450);
+    cur = (n + slides.length) % slides.length;
+    slides[cur].classList.add('active');
+    document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === cur));
+    slideNum.textContent = `${cur + 1} of 8`;
+  }
+
+  document.getElementById('nextBtn').addEventListener('click', () => go(cur + 1));
+  document.getElementById('prevBtn').addEventListener('click', () => go(cur - 1));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(cur + 1);
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') go(cur - 1);
+  });
+  let tx = 0;
+  document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 40) go(cur + (dx < 0 ? 1 : -1));
+  });
+</script>
+</body>
+</html>
